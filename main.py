@@ -6,6 +6,7 @@ from extracting import fetch_kucoin_candles  # <<< IMPORT your function properly
 from transformation import add_ema,add_ema9_ema20, add_macd, add_rsi
 from transformation import add_bollinger_bands
 from transformation import add_atr
+from upload_to_bigquery import upload_dataframe_to_bigquery
 
 
 # Load environment variables
@@ -33,6 +34,13 @@ df = add_rsi(df, period=14)
 df = add_bollinger_bands(df, period=20, multiplier=2)
 df = add_atr(df, period=14)
 
+
+
+
+# Upload fact_prices
+upload_dataframe_to_bigquery(df, table_name="fact_prices")
+# Later if you create df_dim_coins:
+# upload_dataframe_to_bigquery(df_dim_coins, "dim_coins")
 
 # Print the DataFrame to verify
 print(df.tail())
