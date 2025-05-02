@@ -34,3 +34,28 @@ A beginner-friendly cryptocurrency trading bot project.
 - Upload processed data automatically to BigQuery
 - Build trading strategies based on indicators
 - Add live trading and risk management features
+
+
+
+2nd Commit:
+Introduced a new fact_signals table that stores:
+
+Evaluated trade signals (e.g., RSI bounce, MACD cross, volume spike)
+
+Associated logic and debug notes
+
+Added backtest_trades table to store:
+
+Entry/exit prices
+
+Signal match scores
+
+Profit/loss percentages
+
+Trade duration and filters triggered
+
+Included new Python modules to generate and store both signal logic and backtest results in BigQuery for further analysis and optimization.
+
+
+
+
