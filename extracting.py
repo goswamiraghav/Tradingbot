@@ -1,9 +1,9 @@
 # extracting.py
 import ccxt
 import pandas as pd
-from datetime import datetime
-
-def fetch_kucoin_candles(symbol='ETH/USDT', timeframe='1m', limit=100):
+from datetime import datetime, timedelta
+"""
+def fetch_kucoin_candles(symbol='ETH/USDT', timeframe='1m', limit=3000):
     kucoin = ccxt.kucoin()
     ohlcv = kucoin.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -83,3 +83,43 @@ df['ema_20'] = df['close'].ewm(span=20, adjust=False).mean()
 # 7. Show final DataFrame
 print(df.tail())
 '''
+"""
+
+# the above code is limited to fetching 1500 rows, we need more historical data for backtesting which is what we will do next:
+"""
+ Use Pagination with since Parameter
+"""
+
+import time
+
+def fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=10000, batch_size=1000):
+    kucoin = ccxt.kucoin()
+    all_candles = []
+
+    # Go back enough to ensure 3000+ candles are available
+    start_minutes_ago = total_limit + 60  # add buffer
+    since_dt = datetime.utcnow() - timedelta(days=7)
+    since = int(since_dt.timestamp() * 1000)
+
+    while len(all_candles) < total_limit:
+        limit = min(batch_size, total_limit - len(all_candles))
+        candles = kucoin.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit)
+
+        if not candles:
+            break
+
+        # Avoid duplicates
+        if all_candles and candles[-1][0] <= all_candles[-1][0]:
+            break
+
+        all_candles += candles
+        since = candles[-1][0] + 60_000  # 1 minute in ms
+        time.sleep(0.4)
+
+    df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df.drop_duplicates(subset=['timestamp'], keep='last', inplace=True)
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df['symbol'] = symbol
+    df['exchange'] = 'KuCoin'
+    df['interval'] = timeframe
+    return df

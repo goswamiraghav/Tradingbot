@@ -2,11 +2,14 @@
 import os
 from dotenv import load_dotenv
 from google.cloud import bigquery
-from extracting import fetch_kucoin_candles  # <<< IMPORT your function properly
+from extracting import fetch_kucoin_candles_paginated  # <<< IMPORT your function properly
 from transformation import add_ema,add_ema9_ema20, add_macd, add_rsi
 from transformation import add_bollinger_bands
 from transformation import add_atr
 from upload_to_bigquery import upload_dataframe_to_bigquery
+from backtester import run_backtest
+from signal_generator import generate_signal_row
+
 
 
 # Load environment variables
@@ -26,21 +29,52 @@ for row in results:
 # >>>>>>>>>>
 # Now actually run your data fetching cleanly
 
-df = fetch_kucoin_candles()
+#df = fetch_kucoin_candles()
+df = fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=10000)
+
 
 df=add_ema9_ema20(df)
 df=add_macd(df)
 df = add_rsi(df, period=14)
 df = add_bollinger_bands(df, period=20, multiplier=2)
 df = add_atr(df, period=14)
+print(f"Fetched candles: {len(df)}")  # Should show 3000+
 
 
+
+import pandas as pd
+from tqdm import tqdm  # Add this to track progress
+
+# Generate fact_signals
+signal_rows = []
+for i in tqdm(range(20, len(df))):
+    window_df = df.iloc[i-20:i+1].reset_index(drop=True)
+    signal = generate_signal_row(window_df)
+    signal_rows.append(signal)
+
+df_signals = pd.DataFrame(signal_rows)
+
+
+
+# Upload fact_signals
+#upload_dataframe_to_bigquery(df_signals, table_name="fact_signals")
+#upload fact_signals but delete the previous data
+#upload_dataframe_to_bigquery(df_signals, table_name="fact_signals")
+print('uploaded to fact_signals')
 
 
 # Upload fact_prices
-upload_dataframe_to_bigquery(df, table_name="fact_prices")
+#upload_dataframe_to_bigquery(df, table_name="fact_prices")
+print('uploaded to fact_prices')
 # Later if you create df_dim_coins:
 # upload_dataframe_to_bigquery(df_dim_coins, "dim_coins")
+
+backtest_results = run_backtest(df, generate_signal_row, score_threshold=4)
+print(backtest_results.head())
+
+# Upload to BigQuery
+upload_dataframe_to_bigquery(backtest_results, table_name="backtest_trades")
+print('uploaded to backtest')
 
 # Print the DataFrame to verify
 print(df.tail())
