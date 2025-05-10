@@ -92,13 +92,13 @@ print(df.tail())
 
 import time
 
-def fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=10000, batch_size=1000):
+def fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=50000, batch_size=1000):
     kucoin = ccxt.kucoin()
     all_candles = []
 
     # Go back enough to ensure 3000+ candles are available
     start_minutes_ago = total_limit + 60  # add buffer
-    since_dt = datetime.utcnow() - timedelta(days=7)
+    since_dt = datetime.utcnow() - timedelta(days=35)
     since = int(since_dt.timestamp() * 1000)
 
     while len(all_candles) < total_limit:
@@ -123,3 +123,7 @@ def fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limi
     df['exchange'] = 'KuCoin'
     df['interval'] = timeframe
     return df
+
+df = fetch_kucoin_candles_paginated()
+df.to_csv('ethusdt_1m_month.csv', index=False)
+print(f"✅ Fetched and saved {len(df)} rows to ethusdt_1m_month.csv")

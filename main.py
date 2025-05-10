@@ -1,13 +1,15 @@
 # main.py
 import os
 from dotenv import load_dotenv
+import pandas as pd
 from google.cloud import bigquery
 from extracting import fetch_kucoin_candles_paginated  # <<< IMPORT your function properly
 from transformation import add_ema,add_ema9_ema20, add_macd, add_rsi
 from transformation import add_bollinger_bands
 from transformation import add_atr
 from upload_to_bigquery import upload_dataframe_to_bigquery
-from backtester import run_backtest
+#from backtester import run_backtest
+from backtester import run_backtest_v2
 from signal_generator import generate_signal_row
 
 
@@ -30,7 +32,11 @@ for row in results:
 # Now actually run your data fetching cleanly
 
 #df = fetch_kucoin_candles()
-df = fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=10000)
+#this is through api's , right now we are using local saved csv file extracted using the same api, its just that at real time it's harder to extract a month of data
+#df = fetch_kucoin_candles_paginated(symbol='ETH/USDT', timeframe='1m', total_limit=10000)
+df = pd.read_csv("ethusdt_1m_month.csv")
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+
 
 
 df=add_ema9_ema20(df)
@@ -60,21 +66,34 @@ df_signals = pd.DataFrame(signal_rows)
 #upload_dataframe_to_bigquery(df_signals, table_name="fact_signals")
 #upload fact_signals but delete the previous data
 #upload_dataframe_to_bigquery(df_signals, table_name="fact_signals")
-print('uploaded to fact_signals')
+#print('uploaded to fact_signals')
 
 
 # Upload fact_prices
 #upload_dataframe_to_bigquery(df, table_name="fact_prices")
-print('uploaded to fact_prices')
+#print('uploaded to fact_prices')
 # Later if you create df_dim_coins:
 # upload_dataframe_to_bigquery(df_dim_coins, "dim_coins")
 
-backtest_results = run_backtest(df, generate_signal_row, score_threshold=4)
-print(backtest_results.head())
+#backtest_results = run_backtest(df, generate_signal_row, score_threshold=4)
+
+#print(backtest_results.head())
+#print(df_signals['match_score'].value_counts())
+
+#print(f"Backtest trades generated: {len(backtest_results)}")
+#print(backtest_results.columns)
+
 
 # Upload to BigQuery
-upload_dataframe_to_bigquery(backtest_results, table_name="backtest_trades")
-print('uploaded to backtest')
+#upload_dataframe_to_bigquery(backtest_results, table_name="backtest_trades")
+#print('uploaded to backtest')
+trades_df_v2 = run_backtest_v2(df, signal_function=generate_signal_row)
+print(f"✅ Rows in trades_df_v2: {len(trades_df_v2)}")
+print(f"✅ Columns: {trades_df_v2.columns.tolist()}")
+
+
+upload_dataframe_to_bigquery(trades_df_v2, "backtest_trades_v2")
+print('uploaded to backtester v2')
 
 # Print the DataFrame to verify
 print(df.tail())

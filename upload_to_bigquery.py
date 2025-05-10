@@ -14,41 +14,69 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("GOOGLE_APPLICATION_CRE
 # Create a BigQuery Client
 client = bigquery.Client()
 
+
 def upload_dataframe_to_bigquery(df, table_name, write_mode="WRITE_APPEND"):
-    """
-    Uploads any DataFrame to BigQuery into the specified table.
-
-    Parameters:
-    ------------------------------------
-    - df: pandas DataFrame you want to upload
-    - table_name: BigQuery table name (example: 'fact_prices', 'dim_coins', etc.)
-    - write_mode: 
-        - 'WRITE_APPEND' (default) → adds new rows
-        - 'WRITE_TRUNCATE' → deletes old data, uploads fresh
-
-    Automatically detects schema from DataFrame columns.
-    """
-
-    project_id = "scalp-457602"         # Your GCP project id
-    dataset_id = "crypto_data"          # Your BigQuery dataset
-
-    # Build the full table path
+    project_id = "scalp-457602"
+    dataset_id = "crypto_data"
     full_table_id = f"{project_id}.{dataset_id}.{table_name}"
 
-    # Set the upload job config
+    # Manual schema needed for array field
+    if table_name == "backtest_trades":
+        schema = [
+            bigquery.SchemaField("timestamp", "DATETIME"),
+            bigquery.SchemaField("symbol", "STRING"),
+            bigquery.SchemaField("entry_price", "FLOAT"),
+            bigquery.SchemaField("exit_price", "FLOAT"),
+            bigquery.SchemaField("pnl_pct", "FLOAT"),
+            bigquery.SchemaField("match_score", "INTEGER"),
+            bigquery.SchemaField("exit_reason", "STRING"),
+            bigquery.SchemaField("duration_candles", "INTEGER"),
+            bigquery.SchemaField("atr_on_entry", "FLOAT"),
+            bigquery.SchemaField("filters_triggered", "STRING"),
+            bigquery.SchemaField("filters_triggered_list", "STRING", mode="REPEATED"),  #ARRAY<STRING>
+            bigquery.SchemaField("final_signal", "BOOLEAN"),
+        ]
+    elif table_name == "backtest_trades_v2":
+        schema = [
+            bigquery.SchemaField("timestamp", "TIMESTAMP"),
+            bigquery.SchemaField("symbol", "STRING"),
+            bigquery.SchemaField("entry_price", "FLOAT"),
+            bigquery.SchemaField("exit_price", "FLOAT"),
+            bigquery.SchemaField("exit_reason", "STRING"),
+            bigquery.SchemaField("duration_candles", "INTEGER"),
+            bigquery.SchemaField("pnl_pct", "FLOAT"),
+            bigquery.SchemaField("was_profitable", "BOOLEAN"),
+            bigquery.SchemaField("trade_type", "STRING"),
+            bigquery.SchemaField("mfe_atr", "FLOAT"),
+            bigquery.SchemaField("mae_atr", "FLOAT"),
+            bigquery.SchemaField("tp_price", "FLOAT"),
+            bigquery.SchemaField("sl_price", "FLOAT"),
+            bigquery.SchemaField("atr_on_exit", "FLOAT"),
+            bigquery.SchemaField("match_score", "INTEGER"),
+            bigquery.SchemaField("rsi_bounce", "BOOLEAN"),
+            bigquery.SchemaField("macd_cross_up", "BOOLEAN"),
+            bigquery.SchemaField("recent_high_break", "BOOLEAN"),
+            bigquery.SchemaField("range_breakout", "BOOLEAN"),
+            bigquery.SchemaField("strong_candle", "BOOLEAN"),
+            bigquery.SchemaField("volume_spike", "BOOLEAN"),
+            bigquery.SchemaField("signal_combo_name", "STRING"),
+            bigquery.SchemaField("logic_debug_note", "STRING"),
+        ]
+
+    else:
+        schema = None
+
     job_config = bigquery.LoadJobConfig(
         write_disposition=write_mode,
-        autodetect=True,  # BigQuery guesses schema from DataFrame
+        autodetect=(schema is None),
+        schema=schema
     )
 
-    # Upload the DataFrame
-    job = client.load_table_from_dataframe(
+    job = bigquery.Client().load_table_from_dataframe(
         df,
         full_table_id,
         job_config=job_config
     )
 
-    # Wait for upload to complete
     job.result()
-
     print(f"✅ Uploaded {len(df)} rows to {full_table_id} successfully.")
